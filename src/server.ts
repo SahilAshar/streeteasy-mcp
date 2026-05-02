@@ -9,6 +9,47 @@ import { Areas, Amenities } from "streeteasy-api/dist/constants.js";
 import type { AreaCode, Amenity } from "streeteasy-api/dist/constants.js";
 import { formatSearchResults, formatListingDetails } from "./format.js";
 
+// --- URL → numeric ID resolver ---
+
+const SE_RENTAL_ID_RE = /streeteasy\.com\/building\/[^/]+\/rental\/(\d+)/;
+const SE_SLUG_RE = /streeteasy\.com\/building\/([^/]+)\/([^/?#]+)/;
+
+function parseStreetEasyInput(input: string): { type: "id"; id: string } | { type: "slug"; buildingSlug: string; unit: string } {
+  const trimmed = input.trim();
+  if (/^\d+$/.test(trimmed)) {
+    return { type: "id", id: trimmed };
+  }
+  const rentalMatch = trimmed.match(SE_RENTAL_ID_RE);
+  if (rentalMatch) {
+    return { type: "id", id: rentalMatch[1] };
+  }
+  const slugMatch = trimmed.match(SE_SLUG_RE);
+  if (slugMatch) {
+    return { type: "slug", buildingSlug: slugMatch[1], unit: slugMatch[2] };
+  }
+  return { type: "id", id: trimmed };
+}
+
+async function resolveListingId(input: string): Promise<string> {
+  const parsed = parseStreetEasyInput(input);
+  if (parsed.type === "id") return parsed.id;
+
+  const resp = await client.getBuildingBySlug(parsed.buildingSlug);
+
+  if (!resp.buildingBySlug) {
+    throw new Error(`Building "${parsed.buildingSlug}" not found on StreetEasy`);
+  }
+
+  const targetPath = `/building/${parsed.buildingSlug}/${parsed.unit}`;
+  const listings = resp.buildingBySlug.rentalInventorySummary.availableListingDigests;
+  const match = listings.find((l) => l.urlPath === targetPath || l.unit.toLowerCase() === parsed.unit.toLowerCase());
+  if (match) return match.id;
+
+  throw new Error(
+    `Unit "${parsed.unit}" not found in ${parsed.buildingSlug} (${listings.length} active listings). It may be off-market.`
+  );
+}
+
 // --- Area & amenity lookups ---
 
 const AREA_NAMES = Object.keys(Areas) as (keyof typeof Areas)[];
@@ -261,16 +302,17 @@ server.registerTool(
   "get_listing_details",
   {
     description:
-      "Get full details for a specific StreetEasy rental listing by ID. Returns description, building info, amenities, pet policy, transit, open houses, and price history. Get listing IDs from search_rentals results.",
+      "Get full details for a specific StreetEasy rental listing by ID or URL. Accepts a numeric listing ID from search_rentals results, or a full StreetEasy URL (e.g. https://streeteasy.com/building/the-anthem/616). Returns description, building info, amenities, pet policy, transit, open houses, and price history.",
     inputSchema: {
-      listing_id: z.string().describe("The listing ID from search_rentals results"),
+      listing_id: z.string().describe("A numeric listing ID from search_rentals results, or a full StreetEasy listing URL"),
     },
     annotations: { readOnlyHint: true, openWorldHint: true },
   },
   async ({ listing_id }) => {
     try {
+      const resolvedId = await resolveListingId(listing_id);
       await rateLimit();
-      const response = await client.getRentalListingDetails(listing_id);
+      const response = await client.getRentalListingDetails(resolvedId);
       const text = formatListingDetails(response);
       return { content: [{ type: "text" as const, text }] };
     } catch (error) {

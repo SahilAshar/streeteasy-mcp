@@ -144,20 +144,20 @@ export function formatListingDetails(response: RentalListingDetailsResponse): st
   }
 
   // Unit features
-  if (pd.features.list.length > 0) {
+  if (pd.features?.list?.length > 0) {
     lines.push(`\n### Unit Features`);
     for (const f of pd.features.list) lines.push(`- ${f}`);
-    if (pd.features.views.length > 0) lines.push(`- Views: ${pd.features.views.join(", ")}`);
-    if (pd.features.privateOutdoorSpaceTypes.length > 0) {
+    if (pd.features.views?.length > 0) lines.push(`- Views: ${pd.features.views.join(", ")}`);
+    if (pd.features.privateOutdoorSpaceTypes?.length > 0) {
       lines.push(`- Outdoor space: ${pd.features.privateOutdoorSpaceTypes.join(", ")}`);
     }
   }
 
   // Building amenities
-  if (pd.amenities.list.length > 0) {
+  if (pd.amenities?.list?.length > 0) {
     lines.push(`\n### Building Amenities`);
     for (const a of pd.amenities.list) lines.push(`- ${a}`);
-    if (pd.amenities.doormanTypes.length > 0) {
+    if (pd.amenities.doormanTypes?.length > 0) {
       lines.push(`- Doorman: ${pd.amenities.doormanTypes.join(", ")}`);
     }
   }
@@ -169,7 +169,7 @@ export function formatListingDetails(response: RentalListingDetailsResponse): st
     lines.push(`- Cats: ${pet.catsAllowed ? "✓ Allowed" : "✗ Not allowed"}`);
     lines.push(`- Dogs: ${pet.dogsAllowed ? "✓ Allowed" : "✗ Not allowed"}`);
     if (pet.maxDogWeight) lines.push(`- Max dog weight: ${pet.maxDogWeight} lbs`);
-    if (pet.restrictedDogBreeds.length > 0) {
+    if (pet.restrictedDogBreeds?.length > 0) {
       lines.push(`- Restricted breeds: ${pet.restrictedDogBreeds.join(", ")}`);
     }
   }
@@ -187,7 +187,7 @@ export function formatListingDetails(response: RentalListingDetailsResponse): st
   lines.push(`- Area: ${building.area.name}`);
 
   // Transit
-  if (building.nearby.transitStations.length > 0) {
+  if (building.nearby?.transitStations?.length > 0) {
     lines.push(`\n### Transit`);
     for (const station of building.nearby.transitStations.slice(0, 5)) {
       const dist = station.distance < 0.1 ? `${Math.round(station.distance * 5280)} ft` : `${station.distance.toFixed(2)} mi`;
